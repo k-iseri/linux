@@ -100,6 +100,8 @@
 		axi_i2c0: i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			reg = <0x41600000 0x10000>;
+			/* isdbt: PL から外した（PlutoSDR Nano には PL_GPIO の I2C が出ていない） */
+			status = "disabled";
 			interrupt-parent = <&intc>;
 			interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkc 15>;
