@@ -795,8 +795,34 @@ static int axiadc_channel_setup(struct iio_dev *indio_dev,
 	st->max_usr_channel = ADI_USR_CHANMAX(axiadc_read(st, ADI_REG_USR_CNTRL_1));
 	st->max_usr_channel = 0; /* FIXME */
 
-	for (i = 0, cnt = 0; i < adc_chan_num; i++)
-		st->channels[cnt++] = adc_channels[i];
+	for (i = 0, cnt = 0; i < adc_chan_num; i++) {
+		st->channels[cnt] = adc_channels[i];
+		/*
+		 * isdbt: let the core describe the sample container it actually
+		 * streams (CHAN_USR_CNTRL_1).  Stock cores report the same total
+		 * bits as the static table, so nothing changes for them; the
+		 * pluto-fw-isdbt 8 bit packing firmware reports 8/8 and the scan
+		 * element becomes le:s8/8>>0 so that hosts adapt automatically.
+		 */
+		if (st->channels[cnt].scan_index >= 0) {
+			unsigned total;
+
+			usr_ctrl = axiadc_read(st, ADI_REG_CHAN_USR_CNTRL_1(
+					st->channels[cnt].scan_index));
+			total = ADI_TO_USR_DATATYPE_TOTAL_BITS(usr_ctrl);
+			if (total && total != st->channels[cnt].scan_type.storagebits) {
+				st->channels[cnt].scan_type.storagebits = total;
+				st->channels[cnt].scan_type.realbits =
+					ADI_TO_USR_DATATYPE_BITS(usr_ctrl);
+				st->channels[cnt].scan_type.shift =
+					ADI_TO_USR_DATATYPE_SHIFT(usr_ctrl);
+				dev_info(indio_dev->dev.parent,
+					 "channel %u: core reports %u/%u bit samples\n",
+					 cnt, st->channels[cnt].scan_type.realbits, total);
+			}
+		}
+		cnt++;
+	}
 
 	if (st->additional_channel && cnt < AXIADC_MAX_CHANNEL) {
 		st->channels[cnt] = adc_channels[0];
